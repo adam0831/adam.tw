@@ -1,0 +1,25 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { formatDate } from '../consts';
+
+interface Props { posts: CollectionEntry<'posts'>[] }
+const { posts } = Astro.props;
+---
+{posts.length === 0 ? (
+  <p class="lede">還沒有文章。</p>
+) : (
+  <ul class="post-list">
+    {posts.map((post) => (
+      <li>
+        <a href={`/posts/${post.id}/`}>
+          <span class="post-title">
+            {post.data.title}
+            {post.data.draft && <span class="draft-badge">草稿</span>}
+          </span>
+          <time class="post-date" datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
+          {post.data.description && <span class="post-desc">{post.data.description}</span>}
+        </a>
+      </li>
+    ))}
+  </ul>
+)}

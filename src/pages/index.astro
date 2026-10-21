@@ -1,0 +1,15 @@
+---
+import Base from '../layouts/Base.astro';
+import PostList from '../components/PostList.astro';
+import { getPosts } from '../lib/posts';
+
+const posts = (await getPosts()).slice(0, 10);
+---
+<Base>
+  <h1>嗨，我是 Adam。</h1>
+  <p class="lede">這裡記錄我關心的科技、AI 工具，還有生活裡的隨筆。</p>
+
+  <p class="section-title">最新文章</p>
+  <PostList posts={posts} />
+  <p><a href="/posts/">看全部文章 →</a></p>
+</Base>
