@@ -12,7 +12,8 @@ if (existsSync(file)) {
   console.error(`已經有 ${file} 了`);
   process.exit(1);
 }
-const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+// 台北時間，精確到分鐘，例如 2026-10-21T21:15:00+08:00，讓同一天的文章也能正確排序
+const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }).slice(0, 16).replace(' ', 'T') + ':00+08:00';
 writeFileSync(
   file,
   `---\ntitle: ${JSON.stringify(title)}\ndescription: ""\ndate: ${today}\ntags: []\ndraft: true\n---\n\n開始寫吧。\n`,

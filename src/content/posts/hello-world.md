@@ -1,7 +1,7 @@
 ---
 title: Hello World
 description: 第一篇文章，跟世界打聲招呼。
-date: 2026-10-21
+date: 2026-10-21T20:22:00+08:00
 tags: [隨筆]
 ---
 

@@ -26,7 +26,7 @@ npm run new -- my-post-slug "文章標題"
 ---
 title: 文章標題
 description: 一句話摘要（會出現在列表和搜尋結果）
-date: 2026-10-21
+date: 2026-10-21T21:30:00+08:00   # 發佈時間（台北時間）；同一天的文章依時間排序
 tags: [AI, Apple]
 draft: true        # 草稿只在本機 npm run dev 看得到；寫完改成 false
 ---

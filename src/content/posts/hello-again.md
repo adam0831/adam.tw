@@ -1,7 +1,7 @@
 ---
 title: 網站重新開張
 description: 告別 WordPress，adam.tw 改用 Astro 靜態網頁，從頭開始寫。
-date: 2026-10-21
+date: 2026-10-21T14:37:00+08:00
 tags: [網站, Astro]
 ---
 
