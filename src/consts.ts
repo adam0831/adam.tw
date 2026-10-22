@@ -15,7 +15,7 @@ export const SOCIAL = [
 ];
 
 // Google Analytics 4 評估 ID（G- 開頭）。留空就不載入 GA；本機 npm run dev 也不會送出資料。
-export const GA_MEASUREMENT_ID = '';
+export const GA_MEASUREMENT_ID = 'G-FNEHJR08VF';
 
 export function formatDate(d: Date) {
   return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Taipei' });
