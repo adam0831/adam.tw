@@ -1,0 +1,16 @@
+---
+import { GA_MEASUREMENT_ID } from '../consts';
+
+const enabled = import.meta.env.PROD && /^G-[A-Z0-9]+$/.test(GA_MEASUREMENT_ID);
+---
+{enabled && (
+  <>
+    <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}></script>
+    <script is:inline define:vars={{ id: GA_MEASUREMENT_ID }}>
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function () { window.dataLayer.push(arguments); };
+      window.gtag('js', new Date());
+      window.gtag('config', id);
+    </script>
+  </>
+)}

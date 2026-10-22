@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { SITE_TITLE, SITE_DESCRIPTION, NAV, SOCIAL, AUTHOR } from '../consts';
+import Analytics from '../components/Analytics.astro';
 
 interface Props {
   title?: string;
@@ -32,6 +33,7 @@ const isCurrent = (href: string) => (href === '/' ? path === '/' : path.startsWi
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content="zh_TW" />
     <meta name="twitter:card" content="summary" />
+    <Analytics />
   </head>
   <body>
     <header class="site-header">
