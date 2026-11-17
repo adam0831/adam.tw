@@ -1,0 +1,425 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="雙北房價儀表板" description="臺北市、新北市近 12 個月實價登錄：中古屋與預售屋單價、每月趨勢、逐筆交易，價格皆已扣除車位，每期資料發布後自動更新。">
+  <div class="hp">
+    <header>
+      <h1>雙北房價儀表板</h1>
+      <p class="sub" id="period">載入資料中…</p>
+      <p class="lede" id="lede"></p>
+    </header>
+
+    <section class="filters" aria-label="篩選">
+      <label>縣市 <select id="sel-city"></select></label>
+      <label>行政區 <select id="sel-dist"></select></label>
+      <label>屋齡 <select id="sel-age">
+        <option value="全部">全部屋齡</option>
+        <option>0–5 年</option><option>6–10 年</option><option>11–20 年</option>
+        <option>21–30 年</option><option>31–40 年</option><option>40 年以上</option>
+      </select></label>
+      <span class="hint">屋齡只套用在中古屋；預售屋是新建案。</span>
+    </section>
+
+    <section class="tiles">
+      <div class="card tile"><div class="lab">中古屋單價中位數（萬/坪）</div><div class="big" id="t-unit">—</div><div class="note" id="t-unit-n"></div></div>
+      <div class="card tile"><div class="lab">中古屋總價中位數（萬，扣車位）</div><div class="big" id="t-total">—</div><div class="note" id="t-total-n"></div></div>
+      <div class="card tile"><div class="lab">預售屋單價中位數（萬/坪）</div><div class="big" id="t-pre">—</div><div class="note" id="t-pre-n"></div></div>
+    </section>
+
+    <section class="card">
+      <h2>近 12 個月趨勢</h2>
+      <p class="sub">折線是每月單價中位數，下方長條是每月筆數。<b>點任一個月份</b>可以看那個月的完整統計與每一筆交易。</p>
+      <div class="legend"><span><i class="sw" style="background:var(--c0)"></i>資料完整的月份</span><span><i class="sw hollow"></i>資料未齊（還有案件沒登記，僅供參考）</span></div>
+      <div class="grid2">
+        <div><h3>中古屋單價（萬/坪）</h3><div class="chart" id="trend-sale"></div></div>
+        <div><h3>預售屋單價（萬/坪）</h3><div class="chart" id="trend-pre"></div></div>
+      </div>
+      <p class="callout" id="incomplete-note"></p>
+    </section>
+
+    <section class="card" id="month-detail">
+      <div class="row"><h2 id="md-title">月份明細</h2><button type="button" class="btn" id="md-clear" hidden>清除選取</button></div>
+      <p class="sub" id="md-hint">點上方趨勢圖任一月份的點，這裡會顯示該月的完整統計與交易明細。</p>
+      <div id="md-stats"></div>
+      <div id="md-table"></div>
+    </section>
+
+    <section class="card">
+      <h2><span id="child-label">各行政區</span>單價中位數：中古屋 vs 預售屋</h2>
+      <p class="sub">萬/坪，扣車位；依中古屋單價排序，只列中古屋或預售屋 10 筆以上的行政區。選了行政區時，其他區會變淡。</p>
+      <div class="legend"><span><i class="sw" style="background:var(--c0)"></i>中古屋</span><span><i class="sw" style="background:var(--c1)"></i>預售屋</span></div>
+      <div class="chart" id="areas"></div>
+    </section>
+
+    <div class="grid3">
+      <section class="card"><h2>建物型態單價</h2><p class="sub">中古屋，萬/坪</p><div class="chart" id="types"></div></section>
+      <section class="card"><h2>屋齡與單價</h2><p class="sub">中古屋，萬/坪</p><div class="chart" id="ages"></div></section>
+      <section class="card"><h2>總價帶分布</h2><p class="sub">中古屋筆數，總價已扣車位（萬元）</p><div class="chart" id="bands"></div></section>
+    </div>
+
+    <section class="card">
+      <h2>總價有沒有包含車位？</h2>
+      <p>有。實價登錄的「總價元」是房屋加車位的合計，「車位總價元」是其中車位的部分。本頁的總價都用「總價 − 車位價」，單價用「(總價 − 車位價) ÷ (建物面積 − 車位面積)」計算。有些交易含車位，但車位價格沒有另外拆開（車位總價元為 0）：這些案件以同一行政區有拆價案件的每個車位價格中位數 × 車位數估算後扣除（該區拆價案件不到 10 筆時，用全縣市的中位數）。</p>
+      <div class="tblwrap"><table class="plain"><thead><tr><th>項目</th><th>中古屋</th><th>預售屋</th></tr></thead><tbody id="parking-table"></tbody></table></div>
+      <h3 class="mt">扣車位前後的單價比較（中古屋，萬/坪）</h3>
+      <p class="sub">只看車位價格有拆開的交易，各行政區，10 筆以上</p>
+      <div class="legend"><span><i class="sw" style="background:var(--c2)"></i>含車位（總價 ÷ 全部面積）</span><span><i class="sw" style="background:var(--c0)"></i>扣車位</span></div>
+      <div class="chart" id="parking-chart"></div>
+    </section>
+
+    <details>
+      <summary>計算方式與注意事項</summary>
+      <p>資料來源：<a href="https://plvr.land.moi.gov.tw/DownloadOpenData">內政部不動產成交案件實際資訊開放資料</a>，<span id="sources"></span>；以編號去除重複，同一編號保留最新一期。每天早上自動檢查，有新的一期就重新計算。</p>
+      <p>交易標的只取「房地(土地+建物)」與「房地(土地+建物)+車位」，用途為住宅的公寓、華廈、大樓、透天厝；預售屋排除已解約案件。1 坪 = 3.30579 平方公尺，面積為權狀面積（含公設）。排除備註中的親友、員工、共有人等特殊關係交易、瑕疵屋、增建等案件，以及估算的車位價超過總價一半的案件。屋齡以 <span id="age-ref">—</span> 年減建築完成年計算。中位數是把同一地區所有交易一起計算，不是各區數字的平均。</p>
+    </details>
+  </div>
+</Base>
+
+<style is:global>
+  .wrap { max-width: 72rem; }
+  .hp { --c0: #2a78d6; --c1: #eb6834; --c2: #1baf7a; --grid: #e9e5dc; --panel: var(--bg); display: flex; flex-direction: column; gap: 28px; padding: 28px 0 48px; line-height: 1.6; }
+  @media (prefers-color-scheme: dark) { .hp { --c0: #3987e5; --c1: #d95926; --c2: #199e70; --grid: #2a2825; } }
+  .hp h1 { font-size: 2rem; margin: 0; line-height: 1.3; }
+  .hp h2 { font-size: 1.15rem; margin: 0 0 4px; }
+  .hp h3 { font-size: 1rem; margin: 0; font-weight: 600; }
+  .hp .mt { margin-top: 24px; }
+  .hp .sub { color: var(--muted); font-size: 0.85rem; margin: 4px 0 0; }
+  .hp .lede { margin: 12px 0 0; font-size: 1.05rem; }
+  .hp .filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .hp .filters label { font-size: 0.85rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .hp .hint { font-size: 0.8rem; color: var(--muted); }
+  .hp select, .hp .btn { font: inherit; font-size: 0.9rem; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+  .hp .btn { cursor: pointer; }
+  .hp .btn:hover { border-color: var(--muted); }
+  .hp .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; min-width: 0; }
+  .hp .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .hp .tile .lab, .hp .tile .note { font-size: 0.8rem; color: var(--muted); }
+  .hp .tile .big { font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .hp .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-top: 12px; }
+  .hp .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .hp .chart { position: relative; min-height: 120px; width: 100%; }
+  .hp .chart svg { display: block; overflow: visible; }
+  .hp .chart svg text { fill: var(--muted); font-size: 12px; font-family: var(--font-sans); }
+  .hp .chart .grid line { stroke: var(--grid); }
+  .hp .chart .axis path, .hp .chart .axis line { stroke: var(--line); }
+  .hp .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
+  .hp .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .hp .sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .hp .sw.hollow { border: 2px solid var(--c0); box-sizing: border-box; }
+  .hp .callout { font-size: 0.85rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; margin: 16px 0 0; }
+  .hp .tip { position: absolute; pointer-events: none; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; box-shadow: 0 2px 8px rgba(0,0,0,.12); z-index: 5; white-space: nowrap; }
+  .hp .tip .t { font-weight: 600; }
+  .hp .tip .s { color: var(--muted); }
+  .hp .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .hp .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 14px 0 6px; }
+  .hp .stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--bg); }
+  .hp .stat .l { font-size: 0.75rem; color: var(--muted); }
+  .hp .stat .v { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .hp .stat .v small { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+  .hp .tblwrap { overflow-x: auto; margin-top: 12px; }
+  .hp .tx-wrap { overflow: auto; max-height: 640px; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .hp table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  .hp th, .hp td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  .hp .tx-wrap th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .hp th.sortable { cursor: pointer; user-select: none; }
+  .hp th.sortable:hover { color: var(--accent); }
+  .hp td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .hp table.plain td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .hp #md-table .btn { margin-top: 10px; }
+  .hp details summary { cursor: pointer; font-weight: 600; }
+  .hp details p { font-size: 0.9rem; color: var(--muted); }
+</style>
+
+<script>
+  import * as d3 from 'd3';
+
+  const DATA = '/housing/data/';
+  const CITIES = ['臺北市', '新北市'];
+  const CODE: Record<string, string> = { 臺北市: 'a', 新北市: 'f' };
+  const f0 = d3.format(',.0f'), f1 = d3.format(',.1f'), f2 = d3.format(',.2f');
+  const $ = (id: string) => document.getElementById(id)!;
+  const el = (tag: string, cls?: string, text?: string) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  type Row = Record<string, any>;
+  let meta: Row, summary: Row[], trend: Row[], breakdown: Row[];
+  const txCache = new Map<string, Promise<Row[]>>();
+
+  // 狀態放在網址上，方便分享
+  const q = new URLSearchParams(location.search);
+  const S = { city: CITIES.includes(q.get('city') || '') ? q.get('city')! : '臺北市', dist: q.get('dist') || '全部', age: q.get('age') || '全部', m: q.get('m') || '', k: q.get('k') || '' };
+  const tx = { key: '', sort: '交易日', desc: false, limit: 100 };
+  function setState(p: Partial<typeof S>) {
+    Object.assign(S, p);
+    const u = new URLSearchParams();
+    (Object.keys(S) as (keyof typeof S)[]).forEach((k) => { const v = S[k]; if (v && !(v === '全部' && k !== 'city')) u.set(k, v); });
+    history.replaceState(null, '', '?' + u.toString());
+    render();
+  }
+
+  const isAll = (d: Row) => d.縣市 === S.city && d.區 === S.dist && d.屋齡篩選 === '全部';
+  const isScope = (d: Row) => d.縣市 === S.city && d.區 === S.dist && d.屋齡篩選 === S.age;
+  const place = () => S.dist === '全部' ? S.city : S.city + S.dist;
+  const placeAge = () => place() + (S.age === '全部' ? '' : `（屋齡 ${S.age}）`);
+  const rocM = (m: string) => { const [y, mo] = m.split('-'); return `${+y - 1911} 年 ${+mo} 月`; };
+  const isInc = (kind: string, m: string) => (meta.incomplete[kind] || []).includes(m);
+  const msg = (box: HTMLElement, t: string) => { box.replaceChildren(el('p', 'sub', t)); };
+
+  function tipper(box: HTMLElement) {
+    const tip = el('div', 'tip'); tip.hidden = true; box.appendChild(tip);
+    return {
+      show(ev: PointerEvent, title: string, lines: string[]) {
+        tip.replaceChildren(el('div', 't', title), ...lines.map((l) => el('div', 's', l)));
+        tip.hidden = false;
+        const b = box.getBoundingClientRect(); let x = ev.clientX - b.left + 12; const y = ev.clientY - b.top + 12;
+        if (x + tip.offsetWidth > box.clientWidth) x = Math.max(0, ev.clientX - b.left - tip.offsetWidth - 12);
+        tip.style.left = x + 'px'; tip.style.top = y + 'px';
+      },
+      hide() { tip.hidden = true; },
+    };
+  }
+  function textW(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, strs: string[]) {
+    const t = svg.append('text').attr('opacity', 0); let w = 0;
+    strs.forEach((s) => { t.text(s); w = Math.max(w, (t.node() as SVGTextElement).getComputedTextLength()); }); t.remove(); return w;
+  }
+
+  // ---------- 篩選器 ----------
+  function drawFilters() {
+    const sc = $('sel-city') as HTMLSelectElement, sd = $('sel-dist') as HTMLSelectElement, sa = $('sel-age') as HTMLSelectElement;
+    sc.replaceChildren(...CITIES.map((c) => new Option(c, c))); sc.value = S.city;
+    const ds = summary.filter((d) => d.縣市 === S.city && d.屋齡篩選 === '全部' && d.區 !== '全部').map((d) => d.區).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+    sd.replaceChildren(new Option('全部行政區', '全部'), ...ds.map((x) => new Option(x, x))); sd.value = ds.includes(S.dist) ? S.dist : '全部';
+    sa.value = S.age;
+  }
+  ($('sel-city') as HTMLSelectElement).onchange = (e) => setState({ city: (e.target as HTMLSelectElement).value, dist: '全部' });
+  ($('sel-dist') as HTMLSelectElement).onchange = (e) => setState({ dist: (e.target as HTMLSelectElement).value });
+  ($('sel-age') as HTMLSelectElement).onchange = (e) => setState({ age: (e.target as HTMLSelectElement).value });
+  $('md-clear').onclick = () => setState({ m: '', k: '' });
+
+  // ---------- 重點數字 ----------
+  function drawKpi() {
+    const a = summary.find(isAll) || {}, r = summary.find(isScope) || {};
+    const v = (x: any, f: (n: number) => string) => x == null ? '—' : f(x);
+    $('t-unit').textContent = v(r.中古單價, f1); $('t-unit-n').textContent = `樣本 ${v(r.中古筆數, f0)} 筆`;
+    $('t-total').textContent = v(r.中古總價, f0); $('t-total-n').textContent = `含車位時為 ${v(r.中古總價含車位, f0)} 萬`;
+    $('t-pre').textContent = v(a.預售單價, f1); $('t-pre-n').textContent = `樣本 ${v(a.預售筆數, f0)} 筆`;
+    const prem = r.中古單價 && a.預售單價 ? `，比中古屋高 ${Math.round((a.預售單價 / r.中古單價 - 1) * 100)}%` : '';
+    $('lede').textContent = r.中古單價 == null ? `${placeAge()}近 12 個月沒有足夠的中古屋交易。`
+      : `${placeAge()}近 12 個月中古屋單價中位數為每坪 ${f1(r.中古單價)} 萬，總價中位數 ${f0(r.中古總價)} 萬` + (a.預售單價 ? `；預售屋單價中位數 ${f1(a.預售單價)} 萬${prem}。` : '。');
+  }
+
+  // ---------- 橫條圖 ----------
+  type Series = { field: string; name: string; color: string };
+  function hbar(box: HTMLElement, rows: Row[], o: { key: string; series: Series[]; unit: string; fmt: (n: number) => string; barH?: number; extra?: (d: Row) => string[]; label: string }) {
+    box.replaceChildren();
+    if (!rows.length) { msg(box, '這個地區沒有足夠的資料'); return; }
+    const barH = o.barH ?? 14, W = box.clientWidth || 600, gap = 2, groupH = o.series.length * barH + (o.series.length - 1) * gap + 10, H = rows.length * groupH + 24;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('height', H).attr('role', 'img').attr('aria-label', o.label);
+    const left = textW(svg, rows.map((d) => d[o.key])) + 10;
+    const vmax = d3.max(rows, (d) => d3.max(o.series, (s) => d[s.field] || 0)) || 1;
+    const right = Math.max(textW(svg, [o.fmt(vmax)]) + 10, 24);
+    const x = d3.scaleLinear().domain([0, vmax]).nice().range([left, W - right]);
+    svg.append('g').attr('class', 'grid').attr('transform', 'translate(0,20)')
+      .call(d3.axisTop(x).ticks(Math.max(2, Math.floor((W - left) / 90))).tickSize(-(H - 24)).tickFormat((v) => o.fmt(+v))).call((a) => a.select('.domain').remove());
+    const g = svg.append('g').attr('transform', 'translate(0,20)');
+    const tp = tipper(box), anySel = rows.some((d) => d.選取);
+    rows.forEach((d, i) => {
+      const gy = i * groupH + 5, op = anySel && !d.選取 ? 0.35 : 1;
+      g.append('text').attr('x', left - 8).attr('y', gy + (groupH - 10) / 2).attr('dy', '0.35em').attr('text-anchor', 'end').text(d[o.key]).style('font-weight', d.選取 ? '700' : null);
+      o.series.forEach((s, j) => {
+        const v = d[s.field]; if (v == null) return;
+        const y = gy + j * (barH + gap), w = Math.max(4, x(v) - left), r = Math.min(4, barH / 2);
+        g.append('path').attr('d', `M${left},${y}h${w - r}a${r},${r} 0 0 1 ${r},${r}v${barH - 2 * r}a${r},${r} 0 0 1 ${-r},${r}h${-(w - r)}z`).style('fill', s.color).attr('opacity', op);
+        g.append('text').attr('x', left + w + 4).attr('y', y + barH / 2).attr('dy', '0.35em').text(o.fmt(v));
+      });
+      g.append('rect').attr('x', 0).attr('y', gy - 4).attr('width', W).attr('height', groupH).attr('fill', 'transparent')
+        .on('pointermove', (ev) => tp.show(ev, d[o.key], o.series.map((s) => `${s.name}：${d[s.field] == null ? '—' : o.fmt(d[s.field]) + ' ' + o.unit}`).concat(o.extra ? o.extra(d) : [])))
+        .on('pointerleave', () => tp.hide());
+    });
+  }
+
+  function children() {
+    const byAge = new Map(summary.filter((d) => d.縣市 === S.city && d.區 !== '全部' && d.屋齡篩選 === S.age).map((d) => [d.區, d]));
+    return summary.filter((d) => d.縣市 === S.city && d.區 !== '全部' && d.屋齡篩選 === '全部').map((a) => {
+      const r: Row = byAge.get(a.區) || {};
+      return { 名稱: a.區, 選取: S.dist === a.區, 中古筆數: r.中古筆數, 中古單價: r.中古單價, 預售筆數: a.預售筆數, 預售單價: a.預售單價,
+        有車位筆數: r.有車位筆數, 有車位單價含車位: r.有車位單價含車位, 有車位單價扣車位: r.有車位單價扣車位 };
+    });
+  }
+  function drawBars() {
+    $('child-label').textContent = S.city + '各行政區';
+    const ch = children();
+    const areas = ch.filter((d) => (d.中古筆數 || 0) >= 10 || (d.預售筆數 || 0) >= 10)
+      .map((d) => ({ ...d, 中古: (d.中古筆數 || 0) >= 10 ? d.中古單價 : null, 預售: (d.預售筆數 || 0) >= 10 ? d.預售單價 : null }))
+      .sort((a, b) => (b.中古 ?? -1) - (a.中古 ?? -1));
+    hbar($('areas'), areas, { key: '名稱', unit: '萬/坪', fmt: d3.format('.1f'), barH: 9, label: S.city + '各行政區中古屋與預售屋單價中位數',
+      series: [{ field: '中古', name: '中古屋', color: 'var(--c0)' }, { field: '預售', name: '預售屋', color: 'var(--c1)' }],
+      extra: (d) => [`中古 ${f0(d.中古筆數 || 0)} 筆／預售 ${f0(d.預售筆數 || 0)} 筆`] });
+    const pk = ch.filter((d) => (d.有車位筆數 || 0) >= 10).sort((a, b) => b.有車位單價扣車位 - a.有車位單價扣車位);
+    hbar($('parking-chart'), pk, { key: '名稱', unit: '萬/坪', fmt: d3.format('.1f'), barH: 9, label: '扣車位前後的單價比較',
+      series: [{ field: '有車位單價含車位', name: '含車位', color: 'var(--c2)' }, { field: '有車位單價扣車位', name: '扣車位', color: 'var(--c0)' }],
+      extra: (d) => [f0(d.有車位筆數) + ' 筆有拆價車位的交易'] });
+    const br = breakdown.filter(isScope).sort((a, b) => a.順序 - b.順序);
+    const one = (dim: string, id: string, label: string) => {
+      const rows = br.filter((d) => d.維度 === dim);
+      if (dim === '總價帶') hbar($(id), rows, { key: '項目', unit: '筆', fmt: d3.format(',d'), label, series: [{ field: '筆數', name: '筆數', color: 'var(--c0)' }] });
+      else hbar($(id), rows.filter((d) => d.筆數 >= 5), { key: '項目', unit: '萬/坪', fmt: d3.format('.1f'), label,
+        series: [{ field: '單價中位', name: '單價中位數', color: 'var(--c0)' }], extra: (d) => [f0(d.筆數) + ' 筆'] });
+    };
+    one('型態', 'types', '建物型態單價'); one('屋齡', 'ages', '屋齡與單價'); one('總價帶', 'bands', '總價帶分布');
+  }
+
+  function drawParkingTable() {
+    const a = summary.find(isAll) || {}, r = summary.find(isScope) || {};
+    const v = (x: any) => x == null ? '—' : Number.isInteger(x) ? f0(x) : f1(x), pct = (x: any) => x == null ? '—' : Math.round(x * 100) + '%';
+    const rows = [['住宅房地交易筆數', v(r.中古住宅筆數), v(a.預售住宅筆數)], ['含車位的筆數', v(r.中古含車位筆數), v(a.預售含車位筆數)],
+      ['車位價格未拆開、以區域中位數估算扣除', v(r.中古車位估算筆數), v(a.預售車位估算筆數)],
+      ['每筆車位價格中位數（萬，拆價案件）', v(r.中古車位價中位), v(a.預售車位價中位)], ['車位佔總價比例中位數', pct(r.中古車位佔比), pct(a.預售車位佔比)]];
+    $('parking-table').replaceChildren(...rows.map((cells) => { const tr = el('tr'); cells.forEach((c) => tr.appendChild(el('td', '', c))); return tr; }));
+  }
+
+  // ---------- 趨勢圖 ----------
+  const trendRows = () => trend.filter((d) => d.類別 === '預售屋' ? isAll(d) : isScope(d)).sort((a, b) => d3.ascending(a.月份, b.月份));
+  function trendChart(box: HTMLElement, kind: string) {
+    const months = d3.utcMonths(d3.utcParse('%Y-%m')(meta.start)!, d3.utcMonth.offset(d3.utcParse('%Y-%m')(meta.end)!, 1)).map((d) => d3.utcFormat('%Y-%m')(d));
+    const rows = trendRows().filter((d) => d.類別 === kind).map((d) => ({ ...d, inc: isInc(kind, d.月份) }));
+    const pts = rows.filter((d) => d.筆數 >= 3);
+    if (!pts.length) { msg(box, '這個地區沒有足夠的資料'); return; }
+    box.replaceChildren();
+    const W = box.clientWidth || 320, H1 = 150, H2 = 56, gapH = 18, bot = 22, top = 14, H = top + H1 + gapH + H2 + bot;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('height', H).attr('role', 'img').attr('aria-label', kind + '近 12 個月單價中位數與筆數');
+    const fmt = d3.format('.1f');
+    const lo = d3.min(pts, (d) => d.中位數)!, hi = d3.max(pts, (d) => d.中位數)!, pad = Math.max((hi - lo) * 0.25, hi * 0.03);
+    const y = d3.scaleLinear().domain([Math.max(0, lo - pad), hi + pad]).nice().range([top + H1, top]);
+    const yc = d3.scaleLinear().domain([0, d3.max(rows, (d) => d.筆數) || 1]).nice().range([top + H1 + gapH + H2, top + H1 + gapH]);
+    const mlab = (m: string) => `${+m.slice(0, 4) - 1911}/${+m.slice(5)}`;
+    const left = Math.max(textW(svg, y.ticks(4).map(fmt).concat(yc.ticks(2).map(f0))) + 10, textW(svg, ['115/10']) / 2 + 4);
+    const right = textW(svg, ['115/10']) / 2 + 6;
+    const x = d3.scalePoint<string>().domain(months).range([left + 6, W - right]);
+    const X = (d: Row) => x(d.月份)!;
+    svg.append('g').attr('class', 'grid').attr('transform', `translate(${left},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(W - left - right + 6)).tickFormat((v) => fmt(+v))).call((a) => a.select('.domain').remove());
+    svg.append('g').attr('class', 'grid').attr('transform', `translate(${left},0)`).call(d3.axisLeft(yc).ticks(2).tickSize(-(W - left - right + 6)).tickFormat((v) => f0(+v))).call((a) => a.select('.domain').remove());
+    const every = Math.ceil(months.length / Math.max(2, Math.floor((W - left) / 46)));
+    svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${H - bot})`).call(d3.axisBottom(x).tickValues(months.filter((_, i) => i % every === 0)).tickFormat(mlab).tickSizeOuter(0));
+    const full = pts.filter((d) => !d.inc), part = pts.filter((d) => d.inc);
+    const line = d3.line<Row>().x(X).y((d) => y(d.中位數));
+    svg.append('path').datum(full).attr('fill', 'none').style('stroke', 'var(--c0)').attr('stroke-width', 2).attr('d', line);
+    if (part.length && full.length) svg.append('path').datum([full[full.length - 1], ...part]).attr('fill', 'none').style('stroke', 'var(--c0)').attr('stroke-width', 2).attr('stroke-dasharray', '4 4').attr('opacity', 0.6).attr('d', line);
+    const selPt = S.k === kind ? pts.find((d) => d.月份 === S.m) : null;
+    if (selPt) svg.append('circle').attr('cx', X(selPt)).attr('cy', y(selPt.中位數)).attr('r', 8).attr('fill', 'none').style('stroke', 'var(--text)').attr('stroke-width', 2);
+    svg.selectAll('circle.p').data(pts).join('circle').attr('class', 'p').attr('cx', X).attr('cy', (d) => y(d.中位數)).attr('r', 4)
+      .style('fill', (d) => d.inc ? 'var(--surface)' : 'var(--c0)').style('stroke', (d) => d.inc ? 'var(--c0)' : 'var(--surface)').attr('stroke-width', 2);
+    const lastFull = full[full.length - 1];
+    if (lastFull) svg.append('text').attr('x', X(lastFull)).attr('y', y(lastFull.中位數) - 10).attr('text-anchor', 'middle').style('fill', 'var(--text)').text(fmt(lastFull.中位數));
+    const bw = Math.max(3, Math.min(18, x.step() - 4));
+    svg.selectAll('path.b').data(rows).join('path').attr('class', 'b').style('fill', 'var(--c0)').attr('opacity', (d) => d.inc ? 0.35 : 0.8)
+      .attr('d', (d) => { const x0 = X(d) - bw / 2, base = yc(0), h = Math.max(0, base - yc(d.筆數)), r = Math.min(2, bw / 2, h);
+        return `M${x0},${base}v${-(h - r)}a${r},${r} 0 0 1 ${r},${-r}h${bw - 2 * r}a${r},${r} 0 0 1 ${r},${r}v${h - r}z`; });
+    const tp = tipper(box);
+    const cross = svg.append('line').attr('y1', top).attr('y2', H - bot).style('stroke', 'var(--muted)').attr('opacity', 0);
+    const near = (ev: PointerEvent) => { const [mx] = d3.pointer(ev); return rows[d3.leastIndex(rows, (p) => Math.abs(X(p) - mx))!]; };
+    svg.append('rect').attr('x', left).attr('y', 0).attr('width', W - left).attr('height', H).attr('fill', 'transparent').style('cursor', 'pointer')
+      .on('pointermove', (ev) => { const d = near(ev); if (!d) return;
+        cross.attr('x1', X(d)).attr('x2', X(d)).attr('opacity', 1);
+        tp.show(ev, rocM(d.月份), [d.筆數 >= 3 ? `中位數：${fmt(d.中位數)} 萬/坪` : '筆數太少，未畫入折線', '筆數：' + f0(d.筆數)].concat(d.inc ? ['資料未齊，僅供參考'] : [], ['點一下看完整明細'])); })
+      .on('pointerleave', () => { cross.attr('opacity', 0); tp.hide(); })
+      .on('click', (ev) => { const d = near(ev); if (!d) return; setState({ m: d.月份, k: kind }); $('month-detail').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  }
+
+  // ---------- 月份明細 ----------
+  const STATS: [string, string, (n: number) => string, string][] = [['筆數', '成交筆數', f0, '筆'], ['中位數', '單價中位數', f1, '萬/坪'], ['平均', '單價平均', f1, '萬/坪'],
+    ['P25', '單價 25 百分位', f1, '萬/坪'], ['P75', '單價 75 百分位', f1, '萬/坪'], ['最低', '單價最低', f1, '萬/坪'], ['最高', '單價最高', f1, '萬/坪'],
+    ['總價中位', '總價中位數（扣車位）', f0, '萬'], ['坪數中位', '坪數中位數（扣車位）', f1, '坪'], ['含車位筆數', '含車位', f0, '筆'], ['車位估算筆數', '車位價為估算', f0, '筆']];
+  const COLS: [string, string, string][] = [['交易日', '交易日', 't'], ['區', '行政區', 't'], ['地址', '地址', 't'], ['建案', '建案', 't'], ['型態', '型態', 't'], ['樓層', '樓層', 't'],
+    ['格局', '格局', 't'], ['坪數', '坪數', 'n1'], ['總價萬', '總價（萬，扣車位）', 'n1'], ['單價', '單價（萬/坪）', 'n2'], ['屋齡', '屋齡', 'n0'],
+    ['車位價萬', '車位價（萬）', 'n1'], ['車位價估算', '車位價估算', 't']];
+  const TYP = Object.fromEntries(COLS.map(([k, , t]) => [k, t]));
+  const val = (d: Row, k: string) => TYP[k] === 't' ? (d[k] ?? '') : (d[k] === '' || d[k] == null ? null : +d[k]);
+  const loadTx = (city: string) => {
+    if (!txCache.has(city)) txCache.set(city, d3.csv(DATA + `tx_${CODE[city]}.csv`).then((r) => r as unknown as Row[]));
+    return txCache.get(city)!;
+  };
+
+  function drawMonth() {
+    const stats = $('md-stats'), table = $('md-table');
+    stats.replaceChildren(); table.replaceChildren();
+    $('md-clear').hidden = !S.m; $('md-hint').hidden = !!S.m;
+    if (!S.m) { $('md-title').textContent = '月份明細'; return; }
+    $('md-title').textContent = `${place()}・${S.k}・${rocM(S.m)}` + (S.k === '中古屋' && S.age !== '全部' ? `・屋齡 ${S.age}` : '');
+    const row = trendRows().find((d) => d.類別 === S.k && d.月份 === S.m);
+    if (!row) { msg(stats, '這個月份沒有符合條件的交易。'); return; }
+    const box = el('div', 'stats');
+    STATS.forEach(([k, lab, f, u]) => {
+      if (row[k] == null) return;
+      const c = el('div', 'stat'), v = el('div', 'v', f(row[k]) + ' ');
+      v.appendChild(el('small', '', u)); c.append(el('div', 'l', lab), v); box.appendChild(c);
+    });
+    stats.appendChild(box);
+    if (isInc(S.k, S.m)) stats.appendChild(el('p', 'sub', '這個月的案件還沒登記完，數字之後還會變動。'));
+    msg(table, '交易明細載入中…');
+    const want = { ...S };
+    loadTx(S.city).then((all) => { if (JSON.stringify(want) === JSON.stringify(S)) drawTable(all); })
+      .catch(() => msg(table, '交易明細載入失敗，請重新整理頁面。'));
+  }
+  function drawTable(all: Row[]) {
+    const box = $('md-table'); box.replaceChildren();
+    const key = [S.city, S.k, S.m, S.dist, S.age].join('|');
+    if (tx.key !== key) Object.assign(tx, { key, sort: '交易日', desc: false, limit: 100 });
+    let rows = all.filter((d) => d.類別 === S.k && d.月份 === S.m && (S.dist === '全部' || d.區 === S.dist) && (S.k === '預售屋' || S.age === '全部' || d.屋齡段 === S.age));
+    const cols = COLS.filter(([k]) => S.k === '預售屋' ? (k !== '屋齡' && k !== '車位價估算') : k !== '建案');
+    rows = rows.slice().sort((a, b) => {
+      const x = val(a, tx.sort), y = val(b, tx.sort);
+      if (x == null || x === '') return 1; if (y == null || y === '') return -1;
+      const c = x < y ? -1 : x > y ? 1 : 0; return tx.desc ? -c : c;
+    });
+    box.appendChild(el('p', 'sub', `共 ${f0(rows.length)} 筆，點欄位名稱可以排序。`));
+    if (!rows.length) return;
+    const wrap = el('div', 'tx-wrap'), t = el('table'), thead = el('thead'), tr0 = el('tr');
+    cols.forEach(([k, lab]) => {
+      const th = el('th', 'sortable', lab + (tx.sort === k ? (tx.desc ? ' ▼' : ' ▲') : '')); th.tabIndex = 0;
+      th.setAttribute('aria-sort', tx.sort === k ? (tx.desc ? 'descending' : 'ascending') : 'none');
+      const go = () => { if (tx.sort === k) tx.desc = !tx.desc; else { tx.sort = k; tx.desc = TYP[k] !== 't'; } drawTable(all); };
+      th.onclick = go; th.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+      tr0.appendChild(th);
+    });
+    thead.appendChild(tr0); t.appendChild(thead);
+    const tb = el('tbody');
+    rows.slice(0, tx.limit).forEach((d) => {
+      const tr = el('tr');
+      cols.forEach(([k]) => {
+        const v = val(d, k), ty = TYP[k];
+        tr.appendChild(el('td', ty === 't' ? '' : 'num', ty === 't' ? String(v) : v == null ? '—' : ty === 'n0' ? f0(v as number) : ty === 'n2' ? f2(v as number) : f1(v as number)));
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
+    if (rows.length > tx.limit) {
+      const b = el('button', 'btn', `顯示更多（還有 ${f0(rows.length - tx.limit)} 筆）`) as HTMLButtonElement; b.type = 'button';
+      b.onclick = () => { tx.limit += 200; drawTable(all); };
+      box.appendChild(b);
+    }
+  }
+
+  // ---------- 主流程 ----------
+  function render() {
+    if (S.dist !== '全部' && !summary.some((d) => d.縣市 === S.city && d.區 === S.dist)) S.dist = '全部';
+    drawFilters(); drawKpi();
+    trendChart($('trend-sale'), '中古屋'); trendChart($('trend-pre'), '預售屋');
+    drawMonth(); drawBars(); drawParkingTable();
+  }
+
+  Promise.all(['meta', 'summary', 'trend', 'breakdown'].map((n) => d3.json<any>(DATA + n + '.json')))
+    .then(([m, s, t, b]) => {
+      meta = m; summary = s; trend = t; breakdown = b;
+      const upd = new Date(meta.updated).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Taipei' });
+      $('period').textContent = `內政部實價登錄・交易／簽約月份 ${rocM(meta.start)}至 ${rocM(meta.end)}・只計房地（土地＋建物、土地＋建物＋車位）的住宅・所有價格皆已扣除車位・${upd}更新`;
+      const incS = meta.incomplete['中古屋'].map((x: string) => rocM(x)).join('、');
+      const roc = (s: string) => { const [y, mo, d] = s.split('-'); return `${+y - 1911} 年 ${+mo} 月 ${+d} 日`; };
+      $('incomplete-note').textContent = `買賣案件在交易後 30 天內登記，目前資料登記到 ${roc(meta.saleEnd)}，所以 ${incS}的中古屋還有很多案件沒登記，筆數偏少，以空心點表示。預售屋資料目前到 ${roc(meta.presaleEnd)}。`;
+      $('sources').textContent = meta.sources.join('、');
+      $('age-ref').textContent = String(meta.ageRef);
+      render();
+      let w = window.innerWidth;
+      window.addEventListener('resize', () => { if (Math.abs(window.innerWidth - w) < 20) return; w = window.innerWidth; clearTimeout((window as any).__hpT); (window as any).__hpT = setTimeout(render, 150); });
+    })
+    .catch(() => { $('period').textContent = '資料載入失敗，或資料還沒產生（第一次更新完成後就會出現）。'; });
+</script>

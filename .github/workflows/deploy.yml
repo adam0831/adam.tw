@@ -19,6 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # 雙北房價頁的資料：由「更新雙北房價資料」工作流程產生，放在 housing-data 分支
+      - name: 取得房價資料
+        run: |
+          mkdir -p public/housing/data
+          if git fetch --depth 1 origin housing-data; then git archive FETCH_HEAD | tar -x -C public/housing/data; else echo '還沒有 housing-data 分支'; fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -5,6 +5,7 @@ export const AUTHOR = 'Adam Chang';
 export const NAV = [
   { href: '/', label: '首頁' },
   { href: '/posts/', label: '文章' },
+  { href: '/housing/', label: '房價' },
   { href: '/tags/', label: '標籤' },
   { href: '/about/', label: '關於' },
 ];

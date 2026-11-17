@@ -5,3 +5,8 @@ dist/
 .env.*
 .DS_Store
 npm-debug.log*
+
+# 雙北房價資料（由 GitHub Actions 產生，放在 housing-data 分支）
+public/housing/data/
+.housing-cache/
+housing-out/
